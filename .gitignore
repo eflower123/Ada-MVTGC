@@ -1,0 +1,19 @@
+# 忽略 Python 运行时缓存
+__pycache__/
+*.pyc
+
+# 忽略原生数据集和预训练大文件（防止塞爆 GitHub）
+data/
+Data4TGC/
+emb/
+*.npy
+*.emb
+*.txt
+# 忽略模型训练权重和日志
+checkpoints/
+weights/
+logs/
+
+# 忽略本地 IDE 配置文件
+.vscode/
+.idea/
