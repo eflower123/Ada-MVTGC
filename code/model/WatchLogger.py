@@ -99,13 +99,19 @@ class WatchLogger:
                             key=lambda d: (d['acc'] + d['nmi'] + d['ari'] + d['f1']) / 4,
                             reverse=True)
         best['best_AVG'] = avg_sorted[0]
+        best_avg_val = (best['best_AVG']['acc'] + best['best_AVG']['nmi'] +
+                        best['best_AVG']['ari'] + best['best_AVG']['f1']) / 4
 
         self.file.write('\n')
-        order = ['best_ACC', 'second_ACC', 'best_NMI', 'best_ARI', 'best_F1', 'best_AVG']
+        order = ['best_ACC', 'second_ACC', 'best_NMI', 'best_ARI', 'best_F1']
         for label in order:
             d = best[label]
             self.file.write(f'# {label} epoch {d["epoch"] + 1}\n')
             self.file.write(self._fmt_row(d))
+
+        d = best['best_AVG']
+        self.file.write(f'# best_AVG epoch {d["epoch"] + 1}  avg:{best_avg_val:.4f}\n')
+        self.file.write(self._fmt_row(d))
         self.file.flush()
 
     def close(self):
