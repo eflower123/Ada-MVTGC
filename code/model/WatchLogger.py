@@ -8,6 +8,7 @@ class WatchLogger:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
         filepath = os.path.join(log_dir, f'{dataset}_{timestamp}.log')
         self.file = open(filepath, 'w', encoding='utf-8')
+        self.epochs_data = []
 
     def write_header(self, rw, pe, args):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -48,6 +49,63 @@ class WatchLogger:
             f'{s["mp_std"]:<10.4f}'
             f'{beta:<10.4f}\n'
         )
+        self.file.flush()
+
+        self.epochs_data.append({
+            'epoch': epoch,
+            'loss': loss, 'temp_nce': temp_nce, 'l_d': l_d, 'l_x': l_x, 'l_ent': l_ent,
+            'acc': acc, 'nmi': nmi, 'ari': ari, 'f1': f1,
+            'alpha_stats': s, 'beta': beta,
+        })
+
+    def _fmt_row(self, d):
+        s = d['alpha_stats']
+        return (
+            f'{d["epoch"] + 1:<10}'
+            f'{d["loss"]:<10.4f}'
+            f'{d["temp_nce"]:<10.4f}'
+            f'{d["l_d"]:<10.4f}'
+            f'{d["l_x"]:<10.4f}'
+            f'{d["l_ent"]:<10.4f}'
+            f'{d["acc"]:<10.4f}'
+            f'{d["nmi"]:<10.4f}'
+            f'{d["ari"]:<10.4f}'
+            f'{d["f1"]:<10.4f}'
+            f'{s["rw_mean"]:<10.4f}'
+            f'{s["rw_std"]:<10.4f}'
+            f'{s["pe_mean"]:<10.4f}'
+            f'{s["pe_std"]:<10.4f}'
+            f'{s["mp_mean"]:<10.4f}'
+            f'{s["mp_std"]:<10.4f}'
+            f'{d["beta"]:<10.4f}\n'
+        )
+
+    def write_summary(self):
+        if not self.epochs_data:
+            return
+
+        sorted_by = lambda key: sorted(self.epochs_data, key=lambda d: d[key], reverse=True)
+        best = {}
+
+        acc_sorted = sorted_by('acc')
+        best['best_ACC'] = acc_sorted[0]
+        best['second_ACC'] = acc_sorted[1] if len(acc_sorted) > 1 else acc_sorted[0]
+
+        best['best_NMI'] = sorted_by('nmi')[0]
+        best['best_ARI'] = sorted_by('ari')[0]
+        best['best_F1'] = sorted_by('f1')[0]
+
+        avg_sorted = sorted(self.epochs_data,
+                            key=lambda d: (d['acc'] + d['nmi'] + d['ari'] + d['f1']) / 4,
+                            reverse=True)
+        best['best_AVG'] = avg_sorted[0]
+
+        self.file.write('\n')
+        order = ['best_ACC', 'second_ACC', 'best_NMI', 'best_ARI', 'best_F1', 'best_AVG']
+        for label in order:
+            d = best[label]
+            self.file.write(f'# {label} epoch {d["epoch"] + 1}\n')
+            self.file.write(self._fmt_row(d))
         self.file.flush()
 
     def close(self):

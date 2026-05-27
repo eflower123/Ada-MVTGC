@@ -322,6 +322,9 @@ class MVTGC:
         print('Best performance in %d epoch: ACC(%.4f) NMI(%.4f) ARI(%.4f) F1(%.4f)' %
               (self.best_epoch, self.best_acc, self.best_nmi, self.best_ari, self.best_f1))
 
+        if self.logger is not None:
+            self.logger.write_summary()
+
 
     def save_node_embeddings(self, path):
         if torch.cuda.is_available():
