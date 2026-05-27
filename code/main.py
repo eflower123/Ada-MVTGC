@@ -10,6 +10,7 @@ import random
 import os
 
 from model import MVTGC
+from model.WatchLogger import WatchLogger
 
 FType = torch.FloatTensor
 LType = torch.LongTensor
@@ -19,8 +20,14 @@ warnings.filterwarnings("ignore", message="KMeans is known to have a memory leak
 
 def main_train(args):
     start = datetime.datetime.now()
-    the_train = MVTGC.MVTGC(args)
+    log_dir = os.path.join('..', 'Watch')
+    logger = WatchLogger(log_dir, args.dataset)
+    rw = float(args.r_RW)
+    pe = float(args.r_PE)
+    logger.write_header(rw, pe, args)
+    the_train = MVTGC.MVTGC(args, logger=logger)
     the_train.train()
+    logger.close()
     end = datetime.datetime.now()
     print('Training Complete with Time: %s' % str(end - start))
 
