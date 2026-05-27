@@ -9,7 +9,7 @@ class WatchLogger:
         filepath = os.path.join(log_dir, f'{dataset}_{timestamp}.log')
         self.file = open(filepath, 'w', encoding='utf-8')
 
-    def write_header(self, rw, pe, mp, args):
+    def write_header(self, rw, pe, args):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         mp_weight = round(1 - rw - pe, 4)
         self.file.write(f'# MVTGC Training Log\n')
@@ -32,4 +32,5 @@ class WatchLogger:
         self.file.flush()
 
     def close(self):
-        self.file.close()
+        if self.file and not self.file.closed:
+            self.file.close()
