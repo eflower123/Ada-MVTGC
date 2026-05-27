@@ -59,6 +59,14 @@ class MVTGC:
 
         self.scaler = torch.cuda.amp.GradScaler()
 
+        self.d_a = args.d_a
+        self.tau = args.tau
+        self.beta = args.beta_0
+        self.rho = args.rho
+        self.beta_min = args.beta_min
+        self.scoring_fc1 = Linear(self.emb_size, self.d_a)
+        self.scoring_fc2 = Linear(self.d_a, 1)
+
         if torch.cuda.is_available():
             with torch.cuda.device(DID):
                 self.node_emb = Variable(torch.from_numpy(self.main_feature).type(FType).cuda(), requires_grad=True)
@@ -75,13 +83,8 @@ class MVTGC:
                 self.cluster_layer.data = torch.tensor(kmeans.cluster_centers_).cuda()
                 self.v = 1.0
 
-                self.d_a = args.d_a
-                self.tau = args.tau
-                self.beta = args.beta_0
-                self.rho = args.rho
-                self.beta_min = args.beta_min
-                self.scoring_fc1 = Linear(self.emb_size, self.d_a).cuda()
-                self.scoring_fc2 = Linear(self.d_a, 1).cuda()
+                self.scoring_fc1 = self.scoring_fc1.cuda()
+                self.scoring_fc2 = self.scoring_fc2.cuda()
 
         self.logger = logger
 
