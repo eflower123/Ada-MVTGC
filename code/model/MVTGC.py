@@ -87,6 +87,7 @@ class MVTGC:
                 self.scoring_fc2 = self.scoring_fc2.cuda()
 
         self.logger = logger
+        self._batch_alpha = None
 
         self.opt = SGD([
             {'params': [self.node_emb, self.delta, self.cluster_layer]},
@@ -279,6 +280,8 @@ class MVTGC:
             print('Training Complete with Time: %s' % str(end - start))
 
             if self.logger is not None:
+                if not epoch_alphas:
+                    continue
                 all_alphas = np.concatenate(epoch_alphas, axis=0)
                 rw_mean, rw_std = float(all_alphas[:, 0].mean()), float(all_alphas[:, 0].std())
                 pe_mean, pe_std = float(all_alphas[:, 1].mean()), float(all_alphas[:, 1].std())
