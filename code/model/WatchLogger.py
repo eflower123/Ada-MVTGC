@@ -18,17 +18,36 @@ class WatchLogger:
                         f'LR: {args.learning_rate}  |  Emb: {args.emb_size}  |  '
                         f'Neg: {args.neg_size}  |  Hist: {args.hist_len}\n')
         self.file.write(f'# Init weights: RW={rw}  PE={pe}  MP={mp_weight}\n')
-        self.file.write('# epoch\tloss\tACC\tNMI\tARI\tF1\t'
-                        'RW_mean\tRW_std\tPE_mean\tPE_std\tMP_mean\tMP_std\tbeta\n')
+        headers = ["# epoch", "loss", "temp_NCE", "L_d", "L_x", "L_ent",
+                   "ACC", "NMI", "ARI", "F1",
+                   "RW_mean", "RW_std", "PE_mean", "PE_std", "MP_mean", "MP_std", "beta"]
+        header_line = "".join(f"{h:<10}" for h in headers) + "\n"
+        self.file.write(header_line)
         self.file.flush()
 
-    def log_epoch(self, epoch, loss, acc, nmi, ari, f1, alpha_stats, beta):
+    def log_epoch(self, epoch, loss, temp_nce, l_d, l_x, l_ent, acc, nmi, ari, f1, alpha_stats, beta):
         s = alpha_stats
-        self.file.write(f'{epoch + 1}\t{loss:.4f}\t{acc:.4f}\t{nmi:.4f}\t{ari:.4f}\t{f1:.4f}\t'
-                        f'{s["rw_mean"]:.4f}\t{s["rw_std"]:.4f}\t'
-                        f'{s["pe_mean"]:.4f}\t{s["pe_std"]:.4f}\t'
-                        f'{s["mp_mean"]:.4f}\t{s["mp_std"]:.4f}\t'
-                        f'{beta:.4f}\n')
+        epoch_str = f"{epoch + 1}"
+
+        self.file.write(
+            f'{epoch_str:<10}'
+            f'{loss:<10.4f}'
+            f'{temp_nce:<10.4f}'
+            f'{l_d:<10.4f}'
+            f'{l_x:<10.4f}'
+            f'{l_ent:<10.4f}'
+            f'{acc:<10.4f}'
+            f'{nmi:<10.4f}'
+            f'{ari:<10.4f}'
+            f'{f1:<10.4f}'
+            f'{s["rw_mean"]:<10.4f}'
+            f'{s["rw_std"]:<10.4f}'
+            f'{s["pe_mean"]:<10.4f}'
+            f'{s["pe_std"]:<10.4f}'
+            f'{s["mp_mean"]:<10.4f}'
+            f'{s["mp_std"]:<10.4f}'
+            f'{beta:<10.4f}\n'
+        )
         self.file.flush()
 
     def close(self):

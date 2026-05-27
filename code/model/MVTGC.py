@@ -208,6 +208,10 @@ class MVTGC:
             total_loss = loss.sum() + l_framework
 
         self._batch_alpha = alpha.detach().cpu().numpy()
+        self._batch_temporal = loss.detach().sum().cpu().item()
+        self._batch_l_d = l_d.detach().cpu().item()
+        self._batch_l_x = l_x.detach().cpu().item()
+        self._batch_l_ent = l_ent.detach().cpu().item()
 
         return total_loss
 
@@ -234,6 +238,10 @@ class MVTGC:
             start = datetime.datetime.now()
             self.loss = 0.0
             epoch_alphas = []
+            epoch_temporal_l = []
+            epoch_l_d_l = []
+            epoch_l_x_l = []
+            epoch_l_ent_l = []
             loader = DataLoader(self.data, batch_size=self.batch, shuffle=True, num_workers=0,pin_memory=False)
 
             for i_batch, sample_batched in enumerate(loader):
@@ -262,6 +270,10 @@ class MVTGC:
 
                 if self.logger is not None:
                     epoch_alphas.append(self._batch_alpha)
+                    epoch_temporal_l.append(self._batch_temporal)
+                    epoch_l_d_l.append(self._batch_l_d)
+                    epoch_l_x_l.append(self._batch_l_x)
+                    epoch_l_ent_l.append(self._batch_l_ent)
 
             acc, nmi, ari, f1 = eva(self.clusters, self.labels, self.node_emb)
 
@@ -292,7 +304,12 @@ class MVTGC:
                     'mp_mean': mp_mean, 'mp_std': mp_std,
                 }
                 epoch_loss = self.loss.cpu().numpy() / len(self.data)
-                self.logger.log_epoch(epoch, epoch_loss, acc, nmi, ari, f1, alpha_stats, self.beta)
+                avg_temporal = np.mean(epoch_temporal_l)
+                avg_l_d = np.mean(epoch_l_d_l)
+                avg_l_x = np.mean(epoch_l_x_l)
+                avg_l_ent = np.mean(epoch_l_ent_l)
+                self.logger.log_epoch(epoch, epoch_loss, avg_temporal, avg_l_d, avg_l_x, avg_l_ent,
+                                      acc, nmi, ari, f1, alpha_stats, self.beta)
 
             self.beta = max(self.beta * math.exp(-self.rho), self.beta_min)
 
