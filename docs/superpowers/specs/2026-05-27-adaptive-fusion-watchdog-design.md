@@ -1,4 +1,6 @@
-# WatchLogger: Adaptive Fusion Training Monitor
+# WatchLogger: 自适应融合训练监控模块
+
+> 新增 WatchLogger 模块，在 MVTGC 训练过程中记录每轮 epoch 的视图权重统计、损失值和聚类指标，用于追踪自适应视图评分机制的演化过程。
 
 ## Summary
 
