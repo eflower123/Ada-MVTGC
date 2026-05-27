@@ -13,6 +13,7 @@ emb/
 checkpoints/
 weights/
 logs/
+Watch/
 
 # 忽略本地 IDE 配置文件
 .vscode/
