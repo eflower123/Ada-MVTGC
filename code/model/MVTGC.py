@@ -21,7 +21,7 @@ DID = 0
 
 
 class MVTGC:
-    def __init__(self, args):
+    def __init__(self, args, logger=None):
         self.args = args
         self.the_data = args.dataset
         self.file_path = '../data/%s/%s.txt' % (self.the_data, self.the_data)
@@ -75,7 +75,21 @@ class MVTGC:
                 self.cluster_layer.data = torch.tensor(kmeans.cluster_centers_).cuda()
                 self.v = 1.0
 
-        self.opt = SGD(lr=args.learning_rate, params=[self.node_emb, self.delta, self.cluster_layer])
+                self.d_a = args.d_a
+                self.tau = args.tau
+                self.beta = args.beta_0
+                self.rho = args.rho
+                self.beta_min = args.beta_min
+                self.scoring_fc1 = Linear(self.emb_size, self.d_a).cuda()
+                self.scoring_fc2 = Linear(self.d_a, 1).cuda()
+
+        self.logger = logger
+
+        self.opt = SGD([
+            {'params': [self.node_emb, self.delta, self.cluster_layer]},
+            {'params': self.scoring_fc1.parameters()},
+            {'params': self.scoring_fc2.parameters()}
+        ], lr=args.learning_rate)
         self.loss = torch.FloatTensor()
 
     def read_label(self):
@@ -86,13 +100,21 @@ class MVTGC:
                 labels.append(label)
         return labels
 
+    def compute_alpha(self, x_rw, x_pe, x_a):
+        s_rw = self.scoring_fc2(F.relu(self.scoring_fc1(x_rw)))
+        s_pe = self.scoring_fc2(F.relu(self.scoring_fc1(x_pe)))
+        s_a = self.scoring_fc2(F.relu(self.scoring_fc1(x_a)))
+        s = torch.cat([s_rw, s_pe, s_a], dim=1)
+        alpha = F.softmax(s / self.tau, dim=1)
+        return alpha
+
     def kl_loss(self, z, p):
         q = 1.0 / (1.0 + torch.sum(torch.pow(z.unsqueeze(1) - self.cluster_layer, 2), 2) / self.v)
         q = q.pow((self.v + 1.0) / 2.0)
         q = (q.t() / torch.sum(q, 1)).t()
-
-        the_kl_loss = F.kl_div((q.log()), p, reduction='batchmean')  # l_clu
-        return the_kl_loss
+        q = torch.clamp(q, min=1e-8)
+        kl_per_node = F.kl_div(q.log(), p, reduction='none').sum(dim=1)
+        return kl_per_node
 
     def target_dis(self, emb):
         q = 1.0 / (1.0 + torch.sum(torch.pow(emb.unsqueeze(1) - self.cluster_layer, 2), 2) / self.v)
@@ -149,17 +171,30 @@ class MVTGC:
             loss = -torch.log(torch.sigmoid(p_lambda) + 1e-6) - torch.log(
                 torch.sigmoid(torch.neg(n_lambda)) + 1e-6).sum(dim=1)
 
-        l_x = torch.norm(s_node_emb - s_View_RW, p=2) * self.r_RW + torch.norm(s_node_emb - s_View_PE, p=2) * self.r_PE\
-              + torch.norm(s_node_emb - s_View_A, p=2) * (1 - self.r_RW - self.r_PE) + 1e-6
+        # --- adaptive view weights ---
+        alpha = self.compute_alpha(s_View_RW, s_View_PE, s_View_A)
+        a_rw, a_pe, a_a = alpha[:, 0], alpha[:, 1], alpha[:, 2]
+
+        # --- feature fidelity (per-node MSE, alpha-weighted) ---
+        l_x_rw = ((s_node_emb - s_View_RW) ** 2).sum(dim=1) / self.emb_size
+        l_x_pe = ((s_node_emb - s_View_PE) ** 2).sum(dim=1) / self.emb_size
+        l_x_a  = ((s_node_emb - s_View_A)  ** 2).sum(dim=1) / self.emb_size
+        l_x = (a_rw * l_x_rw + a_pe * l_x_pe + a_a * l_x_a).mean() + 1e-6
 
         p_View_RW = self.target_dis(s_View_RW)
         p_View_PE = self.target_dis(s_View_PE)
         p_View_A = self.target_dis(s_View_A)
-        
-        l_d = self.kl_loss(s_node_emb, p_View_RW) * self.r_RW + self.kl_loss(s_node_emb, p_View_PE) * self.r_PE\
-              + self.kl_loss(s_node_emb, p_View_A) * (1 - self.r_RW - self.r_PE)
 
-        l_framework = l_d + l_x
+        # --- KL distillation (per-node alpha-weighted) ---
+        kl_rw = self.kl_loss(s_node_emb, p_View_RW)
+        kl_pe = self.kl_loss(s_node_emb, p_View_PE)
+        kl_a  = self.kl_loss(s_node_emb, p_View_A)
+        l_d = (a_rw * kl_rw + a_pe * kl_pe + a_a * kl_a).mean()
+
+        # --- entropy regularization ---
+        l_ent = (alpha * torch.log(alpha + 1e-8)).sum(dim=1).mean()
+
+        l_framework = l_d + l_x + self.beta * l_ent
 
         if self.the_data == 'school':
             total_loss = l_framework
@@ -167,6 +202,8 @@ class MVTGC:
             total_loss = loss.sum() + l_d
         else:
             total_loss = loss.sum() + l_framework
+
+        self._batch_alpha = alpha.detach().cpu().numpy()
 
         return total_loss
 
@@ -192,6 +229,7 @@ class MVTGC:
         for epoch in range(self.epochs):
             start = datetime.datetime.now()
             self.loss = 0.0
+            epoch_alphas = []
             loader = DataLoader(self.data, batch_size=self.batch, shuffle=True, num_workers=0,pin_memory=False)
 
             for i_batch, sample_batched in enumerate(loader):
@@ -218,6 +256,9 @@ class MVTGC:
                                 sample_batched['history_times'].type(FType),
                                 sample_batched['history_masks'].type(FType))
 
+                if self.logger is not None:
+                    epoch_alphas.append(self._batch_alpha)
+
             acc, nmi, ari, f1 = eva(self.clusters, self.labels, self.node_emb)
 
             if acc > self.best_acc:
@@ -233,6 +274,21 @@ class MVTGC:
 
             end = datetime.datetime.now()
             print('Training Complete with Time: %s' % str(end - start))
+
+            if self.logger is not None:
+                all_alphas = np.concatenate(epoch_alphas, axis=0)
+                rw_mean, rw_std = float(all_alphas[:, 0].mean()), float(all_alphas[:, 0].std())
+                pe_mean, pe_std = float(all_alphas[:, 1].mean()), float(all_alphas[:, 1].std())
+                mp_mean, mp_std = float(all_alphas[:, 2].mean()), float(all_alphas[:, 2].std())
+                alpha_stats = {
+                    'rw_mean': rw_mean, 'rw_std': rw_std,
+                    'pe_mean': pe_mean, 'pe_std': pe_std,
+                    'mp_mean': mp_mean, 'mp_std': mp_std,
+                }
+                epoch_loss = self.loss.cpu().numpy() / len(self.data)
+                self.logger.log_epoch(epoch, epoch_loss, acc, nmi, ari, f1, alpha_stats, self.beta)
+
+            self.beta = max(self.beta * math.exp(-self.rho), self.beta_min)
 
             sys.stdout.flush()
 
