@@ -36,10 +36,10 @@ def main_train(args):
 
 if __name__ == '__main__':
 
-    data = 'patent'
+    data = 'dblp'
     k_dict = {'arxivAI': 5, 'school': 9, 'dblp': 10, 'brain': 10, 'patent': 6}
     RW_dict = {'arxivAI': 1, 'school': 0.5, 'dblp': 0.5, 'brain': 0.5, 'patent': 0.5}
-    PE_dict = {'arxivAI': 0, 'school': 0.1, 'dblp': 0.3, 'brain': 0.5, 'patent': 0.1}
+    PE_dict = {'arxivAI': 0, 'school': 0.1, 'dblp': 0.1, 'brain': 0.5, 'patent': 0.1}
     View_RW_path = '../data/%s/MVC Features/View_RW.txt' % data
     View_PE_path = '../data/%s/MVC Features/View_PE.txt' % data
     View_A_path = '../data/%s/MVC Features/View_MP.txt' % data
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--r_RW', type=float, default=RW_dict[data])
     parser.add_argument('--r_PE', type=float, default=PE_dict[data])
     parser.add_argument('--clusters', type=int, default=k_dict[data])
-    parser.add_argument('--epoch', type=int, default=30)
+    parser.add_argument('--epoch', type=int, default=60)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--View_RW_path', type=str, default=View_RW_path)
     parser.add_argument('--View_PE_path', type=str, default=View_PE_path)
@@ -73,6 +73,10 @@ if __name__ == '__main__':
                         help='entropy weight decay rate per epoch')
     parser.add_argument('--beta_min', type=float, default=0.01,
                         help='minimum entropy regularization weight')
+    parser.add_argument('--min_train_epochs', type=int, default=25,
+                        help='minimum epochs before alpha freeze can trigger')
+    parser.add_argument('--patience', type=int, default=5,
+                        help='consecutive epochs without ACC improvement to trigger freeze')
     parser.add_argument('--directed', type=bool, default=False)
     args = parser.parse_args()
 
