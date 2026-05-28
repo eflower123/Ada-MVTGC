@@ -1,3 +1,4 @@
+import copy
 import math
 import datetime
 import torch
@@ -88,6 +89,16 @@ class MVTGC:
 
         self.logger = logger
         self._batch_alpha = None
+
+        self.min_train_epochs = getattr(args, 'min_train_epochs', 25)
+        self.patience = getattr(args, 'patience', 5)
+        self.alpha_frozen = False
+        self.no_improve_count = 0
+        self.first_best_acc = 0.0
+        self.first_best_acc_epoch = 0
+        self._best_scoring_fc1_state = copy.deepcopy(self.scoring_fc1.state_dict())
+        self._best_scoring_fc2_state = copy.deepcopy(self.scoring_fc2.state_dict())
+        self._best_beta = self.beta
 
         self.opt = SGD([
             {'params': [self.node_emb, self.delta, self.cluster_layer]},
