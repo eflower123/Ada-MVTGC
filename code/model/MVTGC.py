@@ -209,7 +209,10 @@ class MVTGC:
         # --- entropy regularization ---
         l_ent = (alpha * torch.log(alpha + 1e-8)).sum(dim=1).mean()
 
-        l_framework = l_d + l_x + self.beta * l_ent
+        if self.alpha_frozen:
+            l_framework = l_d + l_x
+        else:
+            l_framework = l_d + l_x + self.beta * l_ent
 
         if self.the_data == 'school':
             total_loss = l_framework
