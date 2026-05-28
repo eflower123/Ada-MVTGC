@@ -296,6 +296,31 @@ class MVTGC:
                 self.best_epoch = epoch
                 self.save_node_embeddings(self.emb_path % (self.the_data, self.the_data))
 
+            # --- alpha freeze: track best ACC and trigger ---
+            if acc > self.first_best_acc:
+                self.first_best_acc = acc
+                self.first_best_acc_epoch = epoch
+                self.no_improve_count = 0
+                if not self.alpha_frozen:
+                    self._best_scoring_fc1_state = copy.deepcopy(self.scoring_fc1.state_dict())
+                    self._best_scoring_fc2_state = copy.deepcopy(self.scoring_fc2.state_dict())
+                    self._best_beta = self.beta
+            elif not self.alpha_frozen:
+                self.no_improve_count += 1
+
+            if not self.alpha_frozen and epoch >= self.min_train_epochs - 1 and self.no_improve_count >= self.patience:
+                self.alpha_frozen = True
+                self.scoring_fc1.load_state_dict(self._best_scoring_fc1_state)
+                self.scoring_fc2.load_state_dict(self._best_scoring_fc2_state)
+                self.beta = self._best_beta
+                for p in self.scoring_fc1.parameters():
+                    p.requires_grad = False
+                for p in self.scoring_fc2.parameters():
+                    p.requires_grad = False
+                if self.logger is not None:
+                    self.logger.write_freeze_marker(
+                        self.first_best_acc_epoch, self.first_best_acc, epoch)
+
             sys.stdout.write('\repoch %d: loss=%.4f  ' % (epoch, (self.loss.cpu().numpy() / len(self.data))))
             sys.stdout.write('ACC(%.4f) NMI(%.4f) ARI(%.4f) F1(%.4f)\n' % (acc, nmi, ari, f1))
 
@@ -322,7 +347,8 @@ class MVTGC:
                 self.logger.log_epoch(epoch, epoch_loss, avg_temporal, avg_l_d, avg_l_x, avg_l_ent,
                                       acc, nmi, ari, f1, alpha_stats, self.beta)
 
-            self.beta = max(self.beta * math.exp(-self.rho), self.beta_min)
+            if not self.alpha_frozen:
+                self.beta = max(self.beta * math.exp(-self.rho), self.beta_min)
 
             sys.stdout.flush()
 
