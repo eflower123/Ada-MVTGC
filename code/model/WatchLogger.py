@@ -80,6 +80,13 @@ class WatchLogger:
             f'{d["beta"]:<10.4f}\n'
         )
 
+    def write_freeze_marker(self, best_epoch, best_acc, freeze_epoch):
+        self.file.write(
+            f'# first_best_ACC epoch {best_epoch + 1} (ACC={best_acc:.4f}), '
+            f'alpha frozen at epoch {freeze_epoch + 1}\n'
+        )
+        self.file.flush()
+
     def write_summary(self):
         if not self.epochs_data:
             return
