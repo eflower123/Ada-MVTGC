@@ -10,6 +10,7 @@
 | 熵正则化 | 无 | 基于 beta 衰减的熵正则化，防止权重坍缩 |
 | 训练监控 | 仅终端打印 loss + 聚类指标 | WatchLogger 完整记录每轮 alpha 统计、分量损失、聚类指标 |
 | 损失分量 | 未单独追踪 | 每条日志含 temporal NCE / L_d / L_x / L_ent 四项分量 |
+| Alpha 冻结 | 无 | 两阶段冻结策略，ACC 达到高点后固定视图权重继续训练 GNN |
 
 ### 自适应融合架构
 
@@ -24,6 +25,29 @@
 ```
 
 alpha 权重不在 main.py 里手动指定，而是由模型根据数据自动学习。训练过程中 WatchLogger 记录每轮各视图 alpha 的均值/标准差，可观察权重从初始均匀分布到收敛的全过程。
+
+### Alpha 冻结策略
+
+训练后期，随着 beta 衰减，alpha 容易坍缩到单一视图，导致聚类性能急剧下降。Alpha 冻结策略在 ACC 达到早期高点后**固定视图权重**，后续只训练 GNN 参数（embedding / delta / cluster_layer），防止 alpha 坍缩破坏聚类效果。
+
+**触发机制**（两阶段）：
+
+1. **前 `--min_train_epochs`（默认 25）轮**：强制不冻结，只追踪历史最优 ACC 及其发生轮次
+2. **第 25 轮起**：启动 `--patience`（默认 5）机制——连续 5 轮 ACC 未创新高即触发冻结
+
+**冻结时的操作**：
+- 保存每次刷新 best ACC 时的 scoring 网络参数（deepcopy）
+- 冻结时恢复最优 scoring 网络权重，并设置 `requires_grad=False`
+- 损失中移除 `l_ent`（alpha 已固定，熵正则化无意义）
+- `beta` 停止衰减，保持冻结时刻的值
+
+**冻结后继续训练**：embedding / delta / cluster_layer 正常更新，时序 NCE、L_d、L_x 三项损失继续优化，聚类指标仍每轮评估。冻结后 ACC 可能继续提升——因为 GNN 参数仍在基于固定的优质 alpha 进行优化。
+
+日志中冻结标记示例：
+
+```
+# first_best_ACC epoch 13 (ACC=0.4137), alpha frozen at epoch 25
+```
 
 ## 项目结构
 
@@ -97,6 +121,8 @@ python main.py
 | `--beta_0` | 初始熵正则化权重 | 1.0 |
 | `--rho` | beta 衰减率 | 0.05 |
 | `--beta_min` | beta 下界 | 0.01 |
+| `--min_train_epochs` | 最小训练轮数（此前不触发冻结） | 25 |
+| `--patience` | 连续未创新高容忍轮数 | 5 |
 
 ## WatchLogger 日志格式
 
@@ -128,7 +154,7 @@ python main.py
 
 ### 训练摘要
 
-日志末尾自动附加 6 条摘要记录：
+日志末尾自动附加 6 条摘要记录。若触发 Alpha 冻结，数据行中会插入冻结标记：
 
 ```
 # best_ACC epoch 26
