@@ -129,4 +129,16 @@ class WatchLogger:
 
     def close(self):
         if self.file and not self.file.closed:
+            if self.time_placeholder_pos is not None:
+                elapsed = datetime.now() - self.start_time
+                total_seconds = int(elapsed.total_seconds())
+                h = total_seconds // 3600
+                m = (total_seconds % 3600) // 60
+                s = total_seconds % 60
+                duration_str = f'{h}h {m}m {s}s'
+                line = f'# Total training time: {duration_str}'
+                line = line.ljust(50) + '\n'
+                self.file.seek(self.time_placeholder_pos)
+                self.file.write(line)
+                self.file.seek(0, os.SEEK_END)
             self.file.close()
