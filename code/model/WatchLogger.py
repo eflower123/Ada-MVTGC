@@ -28,6 +28,10 @@ class WatchLogger:
         self.file.write(header_line)
         self.file.flush()
 
+        self.time_placeholder_pos = self.file.tell()
+        self.file.write('# Total training time: --              \n')
+        self.file.flush()
+
     def log_epoch(self, epoch, loss, temp_nce, l_d, l_x, l_ent, acc, nmi, ari, f1, alpha_stats, beta):
         s = alpha_stats
         epoch_str = f"{epoch + 1}"
