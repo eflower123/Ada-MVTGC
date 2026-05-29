@@ -1,5 +1,11 @@
 # Add Training Duration to Log
 
+## 概述
+
+在 WatchLogger 训练日志中增加总训练时长记录。采用占位符 + seek 回填方案：
+训练开始时写入占位行，训练结束时计算实际耗时（格式 `Xh Ym Zs`），
+seek 回去覆盖写入。时长行位于 header 之后、epoch 数据之前。
+
 ## Goal
 
 Record total training time in the WatchLogger log file, placed right after
