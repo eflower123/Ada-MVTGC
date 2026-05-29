@@ -36,7 +36,7 @@ def main_train(args):
 
 if __name__ == '__main__':
 
-    data = 'school'
+    data = 'patent'
     k_dict = {'arxivAI': 5, 'school': 9, 'dblp': 10, 'brain': 10, 'patent': 6}
     RW_dict = {'arxivAI': 1, 'school': 0.5, 'dblp': 0.5, 'brain': 0.5, 'patent': 0.5}
     PE_dict = {'arxivAI': 0, 'school': 0.1, 'dblp': 0.1, 'brain': 0.5, 'patent': 0.1}
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--r_RW', type=float, default=RW_dict[data])
     parser.add_argument('--r_PE', type=float, default=PE_dict[data])
     parser.add_argument('--clusters', type=int, default=k_dict[data])
-    parser.add_argument('--epoch', type=int, default=30)
+    parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--View_RW_path', type=str, default=View_RW_path)
     parser.add_argument('--View_PE_path', type=str, default=View_PE_path)
