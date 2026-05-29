@@ -5,10 +5,12 @@ from datetime import datetime
 class WatchLogger:
     def __init__(self, log_dir, dataset):
         os.makedirs(log_dir, exist_ok=True)
-        timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        self.start_time = datetime.now()
+        timestamp = self.start_time.strftime('%Y-%m-%d_%H%M%S')
         filepath = os.path.join(log_dir, f'{dataset}_{timestamp}.log')
         self.file = open(filepath, 'w', encoding='utf-8')
         self.epochs_data = []
+        self.time_placeholder_pos = None
 
     def write_header(self, rw, pe, args):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
